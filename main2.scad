@@ -68,44 +68,149 @@ module generateKeyHolder(switchtype, capsize, wallh, wallt, rwall, lwall, fwall,
     swt = swttemp > 1 || swttemp < 0 ? 0 : swttemp;
     if(swt == MxSwitchType) generateMxKeyHolder(capsize, wallh, wallt, rwall, lwall, fwall, bwall);
 }
-
-module __translateSwitchMatrixCol(capsize, i,coln,pad,defpad,rrot,rdefrot){
-    if(i < coln){
-        p = valueor(pad[i], defpad);
-        r = valueor(rrot[i], rdefrot);
-        translate([capsize[0],0,0]) translate(p) rotate(r) __translateSwitchMatrixCol(capsize, i+1,coln,pad,defpad,rrot,rdefrot) children();
-    }else{
-        children();
-    }
-}
-module translateSwitchMatrixCol(capsize, coln,pad,defpad,rrot,rdefrot){
-    __translateSwitchMatrixCol(capsize, 0,coln,pad,defpad,rrot,rdefrot) children();
-}
-
-// generate whole matrix with walls where needed
-module generateSwitchMatrix(switchtype, capsize,wallh,wallt, rows,cols, matrix, pad, defpad,rrot,rdefrot){
-    // generateMxKeyHolder([18,18,1],7,2,true,true,true,true);
-    for(rown=[0:1:rows-1]) for(coln=[0:1:cols-1]){
-        if(valueor(matrix[rown][coln],true)) {
-            brown = rown+1;
-            frown = rown-1;
-            rcoln = coln+1;
-            lcoln = coln-1;
-            rwall = rcoln < 0 || rcoln >= cols ? true : (!valueor(matrix[rown][rcoln],true));
-            lwall = lcoln < 0 || lcoln >= cols ? true : (!valueor(matrix[rown][lcoln],true));
-            fwall = frown < 0 || frown >= rows ? true : (!valueor(matrix[frown][coln],true));
-            bwall = brown < 0 || brown >= rows ? true : (!valueor(matrix[brown][coln],true));
-            translateSwitchMatrixCol(capsize, coln,pad,defpad,rrot,rdefrot)
-            translate([0,capsize[1]*rown,0])
-            generateKeyHolder(switchtype, capsize, wallh,wallt,rwall,lwall,fwall,bwall);
+smallsmallvalue = 0.00001;
+module keyHolderAdapterPart(height) cube([smallsmallvalue, smallsmallvalue, height]);
+module generateKeyHolderAdapter(switchtype, capsize, fl, fr, br, bl){
+    height = switchtype == 1 ? MxSwitchHoleHeight 
+    : MxSwitchHoleHeight;
+    translate([0,0,-height])
+    union(){
+        if(fl){
+            keyHolderAdapterPart(height);
+        }
+        if(fr){
+            translate([capsize[0]-smallsmallvalue,0,0])
+            keyHolderAdapterPart(height);
+        }
+        if(br){
+            translate([capsize[0]-smallsmallvalue,capsize[1]-smallsmallvalue,0])
+            keyHolderAdapterPart(height);
+        }
+        if(bl){
+            translate([0,capsize[1]-smallsmallvalue,0])
+            keyHolderAdapterPart(height);
         }
     }
 }
 
-generateSwitchMatrix(MxSwitchType, [20,20,20],20,20, 4,5,
-[
-  [false,false],
-  [],
+module __translateSwitchMatrixCol(capsize, i,coln,pad,defpad,rrot,rdefrot, reverse){
+    if(valueor(reverse,false)){
+        if(coln>i){
+            p = valueor(pad[coln-1], defpad);
+            r = valueor(rrot[coln-1], rdefrot);
+            rotate(-r) translate(-p) 
+            translate([-capsize[0],0,0])
+            __translateSwitchMatrixCol(capsize, i, coln-1, pad, defpad, rrot, rdefrot, reverse) 
+            children();
+        }else{
+            children();
+        }
+    }
+    else
+    {
+        if(i < coln){
+            p = valueor(pad[i], defpad);
+            r = valueor(rrot[i], rdefrot);
+            translate([capsize[0],0,0]) 
+            translate(p) rotate(r) __translateSwitchMatrixCol(capsize, i+1,coln,pad,defpad,rrot,rdefrot,reverse) children();
+        }else{
+            children();
+        }
+    }
+}
+module translateSwitchMatrixCol(capsize, coln,pad,defpad,rrot,rdefrot, reverse){
+    __translateSwitchMatrixCol(capsize, 0,coln,pad,defpad,rrot,rdefrot, reverse) children();
+}
+
+module __translateKeyHolder(capsize, i, rown, coln, colsrot, colsdefrot, sdefrot, reverse) {
+    if(reverse){
+        if(rown>i){
+            colrot = valueor(colsrot[coln], colsdefrot);
+            rot = valueor(colrot[rown-1], sdefrot);
+            rotate(-rot) /*pad*/ 
+            translate([0,-capsize[1],0])
+            __translateKeyHolder(capsize, i, rown-1, coln, colsrot, colsdefrot, sdefrot, reverse) children();
+        }else{
+            children();
+        }
+    }
+    else
+    {
+        if(i < rown){
+            colrot = valueor(colsrot[coln], colsdefrot);
+            rot = valueor(colrot[i-1], sdefrot);
+            translate([0,capsize[1],0])
+            /*pad*/ rotate(rot)
+            __translateKeyHolder(capsize, i+1, rown, coln, colsrot, colsdefrot, sdefrot, reverse) children();
+        }else{
+            children();
+        }
+    }
+}
+module translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot, reverse){
+    __translateKeyHolder(capsize, 0, rown, coln, colsrot, colsdefrot, sdefrot, reverse) children();
+}
+
+function translateRownToCol(rown, coln, colhome, coldefhome, homeval) = rown + valueor(colhome[coln],coldefhome) - homeval;
+function getKey(matrix, rows, cols, rown, coln) = coln < 0 || coln >= cols || rown < 0 || rown >= rows ? true : (!valueor(matrix[rown][coln],true));
+
+module generateSwitchMatrixCol(switchtype, capsize, wallh, wallt, rows, cols, coln,matrix, colsrot, colsdefrot, sdefrot, colhome, coldefhome){
+    homeval = valueor(colhome[coln],coldefhome);
+    translateKeyHolder(capsize, homeval, coln, colsrot, colsdefrot, sdefrot, true)
+    for(rown=[0:1:rows-1]) {
+        if(valueor(matrix[rown][coln],true)) {
+            rcoln = coln+1;
+            lcoln = coln-1;
+            rrown = translateRownToCol(rown, rcoln, colhome, coldefhome, homeval);
+            lrown = translateRownToCol(rown, lcoln, colhome, coldefhome, homeval);
+            brown = rown+1;
+            frown = rown-1;
+            rwall = getKey(matrix, rows, cols, rrown, rcoln);
+            lwall = getKey(matrix, rows, cols, lrown, lcoln);
+            fwall = getKey(matrix, rows, cols, frown, coln);
+            bwall = getKey(matrix, rows, cols, brown, coln);
+            translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
+                generateKeyHolder(switchtype, capsize, wallh,wallt,rwall,lwall,fwall,bwall);
+        }
+        if(rown > 0 && valueor(matrix[rown][coln], true) && valueor(matrix[rown-1][coln],true)){
+            hull(){
+                translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
+                    generateKeyHolderAdapter(switchtype, capsize, true, true, false, false);
+                translateKeyHolder(capsize, rown-1, coln, colsrot, colsdefrot, sdefrot)
+                    generateKeyHolderAdapter(switchtype, capsize, false, false, true, true);
+            }
+        }
+    }
+}
+// generate whole matrix with walls where needed
+module generateSwitchMatrix(switchtype, capsize,wallh,wallt, rows,cols, matrix, homecol, pad, defpad,rrot,rdefrot, colsrot, colsdefrot, sdefrot, colhome, coldefhome){
+    homecolval = valueor(homecol, 0);
+    translateSwitchMatrixCol(capsize, homecolval, pad, defpad, rrot, rdefrot, true)
+    for(coln=[0:1:cols-1]){
+        translateSwitchMatrixCol(capsize, coln,pad,defpad,rrot,rdefrot)
+        generateSwitchMatrixCol(switchtype, capsize, wallh, wallt, rows, cols, coln, matrix, colsrot, colsdefrot, sdefrot, colhome, coldefhome);
+    }
+}
+
+generateSwitchMatrix(
+switchtype=MxSwitchType, 
+capsize = [20,20,20],
+wallh = 20,
+wallt = 20,
+rows = 4,
+cols = 5,
+matrix = [
+  [true,true],
+  [true,true, false],
 ],
-[],[2,0,0],
-[],[2,-10,0]);
+homecol = 2,
+pad = [],
+defpad = [2,0,0],
+rrot = [],
+rdefrot = [0,-10,0],
+colsrot = [],
+colsdefrot = [],
+sdefrot = [20,0,0],
+colhome = [0,1,2,3,1],
+coldefhome = 2
+);
