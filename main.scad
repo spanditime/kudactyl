@@ -16,11 +16,13 @@ MxSwitchPinSize = 3;
 MxSwitchHoleHeight = MxSwitchHoleHolder[2]+MxSwitchHoleExt[2];
 MxSwitchHeight = 10 ;
 MxSwitchMinWallh = 5;
+MxCapsizeMin = [16,16,11];
 
 // MX HOTSWAP 
 MxHotswapPlateHeight = 1.5;
 MxHotswapSwitchHoleHeight = MxSwitchHoleHeight+MxHotswapPlateHeight;
 MxHotswapSwitchMinWallh = 5;
+MxHotswapCapsizeMin = [17,16,11];
 
 // kb specific util functions
 function switchtype_or(switchtype) = 
@@ -39,6 +41,22 @@ function min_wallh(switchtype) =
     switchtype == MxSwitchType ? MxSwitchMinWallh 
     : switchtype == MxHotswapSwitchType ? MxHotswapSwitchMinWallh
     : MxSwitchMinWallh;
+
+function capsize_lowcap(capsize, mincapsize) = [
+    valueor_lowcap(capsize[0], mincapsize[0]),
+    valueor_lowcap(capsize[1], mincapsize[1]),
+    valueor_lowcap(capsize[2], mincapsize[2])
+];
+
+function MX_capsize_normalize(capsize) = 
+    capsize_lowcap(valueor(capsize,MxCapsizeMin),MxCapsizeMin);
+function MXH_capsize_normalize(capsize) = 
+    capsize_lowcap(valueor(capsize,MxHotswapCapsizeMin),MxHotswapCapsizeMin);
+
+function capsize_normalize(switchtype, capsize) = 
+    switchtype == MxSwitchType ? MX_capsize_normalize(capsize) :
+    switchtype == MxHotswapSwitchType ? MXH_capsize_normalize(capsize) :
+    MX_capsize_normalize(capsize);
 
 // cap wall thickness
 function wallt_normalize(wallt,capsize, keyholderclearence) = valueor_cap(wallt, (capsize - keyholderclearence)/2);
@@ -74,85 +92,147 @@ module generateKeyHolderCornerWalls(capsize, wallh, xw, yw, lf, rf, rb, lb){
         }
     }
 }
-module generateKeyHolderFlatWalls(capsize,  wallh, xw, yw, rwall, lwall, fwall, bwall){
-    xt = capsize[0]-xw;
-    yt = capsize[1]-yw;
-    translate([0,0,-wallh]) {
-        if(valueor(rwall,false)){
-            translate([xt,0,0])
-            cube([xw,capsize[1],wallh]);
+module __generateKeyHolderWallPart(wallh, wallt, m){
+    width = wallt/sin(45);
+    rotate([0,0,45])
+    if(!valueor(m,false)){
+        cube([width,smallsmallvalue,wallh]);
+    }else{
+        translate([0,-smallsmallvalue,0])
+        cube([width,smallsmallvalue,wallh]);
+    }
+}
+module generateKeyHolderWallPart(capsize, wallh, wallt, fl, fr, rf, rb, br, bl, lb, lf, clf, clb, crf, crb){
+    if(valueor(fl,false)){
+        rotate([0,0,270])
+        __generateKeyHolderWallPart(wallh,wallt,true);
+    }
+    if(valueor(fr,false)){
+        translate([capsize[0],0,0])
+        rotate([0,0,180])
+        __generateKeyHolderWallPart(wallh,wallt);
+    }
+    if(valueor(rf,false)){
+        translate([capsize[0],0,0])
+        __generateKeyHolderWallPart(wallh,wallt,true);
+    }
+    if(valueor(rb,false)){
+        translate([capsize[0],capsize[1],0])
+        rotate([0,0,270])
+        __generateKeyHolderWallPart(wallh,wallt,false);
+    }
+    if(valueor(br,false)){
+        translate([capsize[0],capsize[1],0])
+        rotate([0,0,90])
+        __generateKeyHolderWallPart(wallh,wallt,false);
+    }
+    if(valueor(bl,false)){
+        translate([0,capsize[1],0])
+        rotate([0,0,0])
+        __generateKeyHolderWallPart(wallh,wallt,false);
+    }
+
+    if(valueor(lf,false)){
+        rotate([0,0,90])
+          __generateKeyHolderWallPart(wallh,wallt);
+    }
+    if(valueor(lb,false)){
+        translate([0,capsize[1],0])
+        rotate([0,0,180])
+        __generateKeyHolderWallPart(wallh,wallt,true);
+    }
+
+    if(valueor(clf,false)){
+        translate([0,-wallt,0])
+        generateKeyHolderWallPart(capsize, wallh,wallt,lf=true);
+    }
+    if(valueor(crf,false)){
+        translate([0,-wallt,0])
+        generateKeyHolderWallPart(capsize, wallh,wallt,rf=true);
+    }
+    if(valueor(clb,false)){
+        translate([0,wallt,0])
+        generateKeyHolderWallPart(capsize, wallh,wallt,lb=true);
+    }
+    if(valueor(crb,false)){
+        translate([0,wallt,0])
+        generateKeyHolderWallPart(capsize, wallh,wallt,rb=true);
+    }
+    
+}
+module generateKeyHolderFlatWalls(capsize,  wallh, wallt, rwall, lwall, fwall, bwall){
+    r = valueor(rwall,false);
+    l = valueor(lwall,false);
+    f = valueor(fwall,false);
+    b = valueor(bwall,false);
+    if(r){
+        hull(){
+            generateKeyHolderWallPart(capsize, wallh, wallt, rf=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, rb=true);
         }
-        if(valueor(lwall,false)){
-            cube([xw,capsize[1],wallh]);
+    }
+    if(l){
+        hull(){
+            generateKeyHolderWallPart(capsize, wallh, wallt, lf=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, lb=true);
         }
-        if(valueor(fwall,false)){
-            cube([capsize[0],yw,wallh]);
+    }
+    if(f){
+        hull(){
+            generateKeyHolderWallPart(capsize, wallh, wallt, fl=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, fr=true);
         }
-        if(valueor(bwall,false)){
-            translate([0,yt,0])
-            cube([capsize[0],yw,wallh]);
+    }
+    if(b){
+        hull(){
+            generateKeyHolderWallPart(capsize, wallh, wallt, bl=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, br=true);
+        }
+    }
+    // generate corners
+    if( l && f ){
+        hull(){
+            generateKeyHolderWallPart(capsize, wallh, wallt, lf=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, fl=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, clf=true);
+        }
+    }
+    if( r && f ){
+        hull(){
+            generateKeyHolderWallPart(capsize, wallh, wallt, rf=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, fr=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, crf=true);
+        }
+    }
+    if( l && b ){
+        hull(){
+            generateKeyHolderWallPart(capsize, wallh, wallt, lb=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, bl=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, clb=true);
+        }
+    }
+    if( r && b ){
+        hull(){
+            generateKeyHolderWallPart(capsize, wallh, wallt, rb=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, br=true);
+            generateKeyHolderWallPart(capsize, wallh, wallt, crb=true);
         }
     }
 }
 
-module __generateKeyHolderWalls(capsize, keyholderheight, keyholderclearence, wallh, wallt, rwall, lwall, fwall, bwall, lfwall, rfwall, rbwall, lbwall){
-    xw = wallt_normalize(wallt, capsize[0], keyholderclearence[0]); 
-    yw = wallt_normalize(wallt, capsize[1], keyholderclearence[1]);
-    translate([0,0,-keyholderheight]){
-        generateKeyHolderFlatWalls(capsize, wallh, xw, yw, rwall, lwall, fwall, bwall);
-        generateKeyHolderCornerWalls(capsize, wallh, xw, yw, lfwall, rfwall, rbwall, lbwall);
-    }
-}
 module generateKeyHolderWalls(switchtype, capsize, wallh, wallt, rwall, lwall, fwall, bwall, lfwall, rfwall, rbwall, lbwall){
-    __generateKeyHolderWalls(capsize = capsize, keyholderheight = key_holder_height(switchtype), keyholderclearence = key_holder_clearence(switchtype)
-    , wallh = wallh, wallt = wallt, rwall = rwall, lwall = lwall, fwall = fwall, bwall = bwall, lfwall = lfwall, rfwall = rfwall, rbwall = rbwall, lbwall = lbwall);
+    wh = key_holder_height(switchtype) + wallh;
+    translate([0,0,-wh]){
+        generateKeyHolderFlatWalls(capsize, wh, wallt, rwall, lwall, fwall, bwall);
+    }
 }
 
-module KeyHolderWallAdapterPart(capsize, wallh, xw, yw) {
-    translate([0,0,-wallh]){
-        if(!is_undef(xw)){
-            cube([xw,smallsmallvalue, wallh]);
-        }
-        if(!is_undef(yw)){
-            cube([smallsmallvalue,yw, wallh]);
-        }
-    }
-}
-module __generateKeyHolderWallAdapter(capsize, keyholderclearence, keyholderheight, wallh, wallt, fl,fr,rf,rb,br,bl,lb,lf){
-    xw = wallt_normalize(wallt, capsize[0], keyholderclearence[0]); 
-    yw = wallt_normalize(wallt, capsize[1], keyholderclearence[1]);
-    fbxt = capsize[0]-xw; // front-to-back x translate
-    fbyt = capsize[1]-smallsmallvalue; // front-to-back y translate
-    lrxt = capsize[0]-smallsmallvalue; // left-to-right x translate
-    lryt = capsize[1]-yw; // left-to-right y translate
-    translate([0,0,-capsize[2]-keyholderheight]){
-        //front
-        {
-            if(fl) KeyHolderWallAdapterPart(capsize, wallh, xw = xw);
-            if(fr) translate([fbxt,0,0]) KeyHolderWallAdapterPart(capsize, wallh, xw = xw);
-        }
-        //back
-        translate([0,fbyt,0]){
-            if(bl) KeyHolderWallAdapterPart(capsize, wallh, xw = xw);
-            if(br) translate([fbxt,0,0]) KeyHolderWallAdapterPart(capsize, wallh, xw = xw);
-        }
-        // left
-        {
-            if(lf) KeyHolderWallAdapterPart(capsize, wallh, yw = yw);
-            if(lb) translate([0,lryt,0]) KeyHolderWallAdapterPart(capsize, wallh, yw = yw);
-        }
-        // right
-        translate([lrxt, 0, 0]){
-            if(rf) KeyHolderWallAdapterPart(capsize, wallh, yw = yw);
-            if(rb) translate([0,lryt,0]) KeyHolderWallAdapterPart(capsize, wallh, yw = yw);
-        }
-    }
-}
 module generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, fl,fr,rf,rb,br,bl,lb,lf){
-    __generateKeyHolderWallAdapter(capsize = capsize, 
-    keyholderclearence = key_holder_clearence(switchtype),
-    keyholderheight = key_holder_height(switchtype),
-    , wallh = wallh, wallt = wallt, fl = fl, fr = fr, rf = rf, rb = rb, br = br, bl = bl, lb = lb, lf = lf);
+    keyholderheight = key_holder_height(switchtype);
+    wh = keyholderheight + wallh;
+    translate([0,0,-capsize[2]-keyholderheight-wallh]){
+        generateKeyHolderWallPart(capsize, wh, wallt, fl, fr, rf, rb, br, bl, lb, lf);
+    }
 }
 
 // mx modules
@@ -203,6 +283,9 @@ module generateMxHotswapKeyHolder(capsize, wallh, wallt, rwall, lwall, fwall, bw
     MountPinStepOff = 4;
     LedX = 5;
     LedY = 3;
+    drainhole = [1.5,1.5,MxHotswapPlateSize[2]];
+    drainholexoff = (-MxSwitchHoleExt[0]+MxHotswapPlateSize[0])/2;
+    drainholeyoff = (-MxSwitchHoleExt[1]+MxHotswapPlateSize[1])/2;
     translate([0,0,-MxSwitchHoleHeight]){
         translate([0,0,-MxHotswapPlateSize[2]])
         difference(){
@@ -229,6 +312,22 @@ module generateMxHotswapKeyHolder(capsize, wallh, wallt, rwall, lwall, fwall, bw
             // led 
             translate([PlateXCenter-LedX/2, PlateYCenter-4*GridStep-LedY/2,0])
             cube([LedX, LedY, MxHotswapPlateSize[2]]);
+            
+            // drain holes 
+            translate([drainholexoff, drainholeyoff,0]){
+                //lf
+                cube(drainhole);
+                // rf
+                translate([MxSwitchHoleExt[0]-drainhole[0],0,0])
+                cube(drainhole);
+                // rb
+                translate([MxSwitchHoleExt[0]-drainhole[0],MxSwitchHoleExt[1]-drainhole[1],0])
+                cube(drainhole);
+                //lb
+                translate([0,MxSwitchHoleExt[1]-drainhole[1],0])
+                cube(drainhole);
+                
+            }
         }
     }
 }
@@ -329,84 +428,92 @@ module translateSwitchMatrixCol(capsize, coln,pad,defpad,rrot,rdefrot, reverse){
 module generateSwitchMatrixColAdapter(switchtype, capsize, wallh, wallt, rows, cols, coln,matrix, pad, defpad,rrot,rdefrot, colsrot, colsdefrot, sdefrot, colhome, coldefhome){
     if(coln > 0){
         homeval = valueor(colhome[coln],coldefhome);
-        lhomeval = valueor(colhome[coln-1],coldefhome);
-        for(rown=[0:1:rows-1]) {
-            if(valueor(matrix[rown][coln],true)) {
-                // left 
-                lcoln = coln-1;
-                lrown = translateRownToCol(rown, lcoln, colhome, coldefhome, homeval);
-                lwall = getKey(matrix, rows, cols, lrown, lcoln);
-                
-                // left front
-                lfcoln = coln-1;
-                lfrown = translateRownToCol(rown-1, lfcoln, colhome, coldefhome, homeval);
-                lfwall = getKey(matrix, rows, cols, lfrown, lfcoln);
+        lcoln = coln-1;
+        lhomeval = valueor(colhome[lcoln],coldefhome);
+        start = -rows;
+        end = rows*2;
+        echo(start);
+        echo(end);
+        for(rown=[start:1:end]) {
+            // left 
+            lrown = translateRownToCol(rown, lcoln, colhome, coldefhome, homeval);
+            lwall = getKey(matrix, rows, cols, lrown, lcoln);
+            
+            // left front
+            lfcoln = coln-1;
+            lfrown = translateRownToCol(rown-1, lfcoln, colhome, coldefhome, homeval);
+            lfwall = getKey(matrix, rows, cols, lfrown, lfcoln);
 
-                // front
-                fcoln = coln;
-                frown = rown-1;
-                fwall = getKey(matrix, rows, cols, frown, fcoln);
+            // front
+            fcoln = coln;
+            frown = rown-1;
+            fwall = getKey(matrix, rows, cols, frown, fcoln);
 
-                // back
-                bcoln = coln;
-                brown = rown+1;
-                bwall = getKey(matrix, rows, cols, brown, bcoln);
+            // back
+            bcoln = coln;
+            brown = rown+1;
+            bwall = getKey(matrix, rows, cols, brown, bcoln);
 
-                // left back
-                lbcoln = coln-1;
-                lbrown = translateRownToCol(rown+1,lbcoln, colhome, coldefhome, homeval);
-                lbwall = getKey(matrix, rows, cols, lbrown, lbcoln);
-                
+            // left back
+            lbcoln = coln-1;
+            lbrown = translateRownToCol(rown+1,lbcoln, colhome, coldefhome, homeval);
+            lbwall = getKey(matrix, rows, cols, lbrown, lbcoln);
+            // if there is a key where we are on
+            curr = getKey(matrix, rows, cols, rown, coln);
+            if(!curr) {
                 // surface connector
                 if(!lwall){
                     hull(){
-                        translateKeyHolder(capsize, lhomeval, lcoln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, lrown, lcoln, colsrot, colsdefrot, sdefrot)
+                            translateKeyHolder(capsize, homeval, coln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
                             generateKeyHolderAdapter(switchtype, capsize, true, false, false, true);
                         translateSwitchMatrixCol(capsize, coln, pad, defpad, rrot, rdefrot,true) translateSwitchMatrixCol(capsize, lcoln, pad, defpad, rrot, rdefrot)
-                            translateKeyHolder(capsize, homeval, coln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
+                        translateKeyHolder(capsize, lhomeval, lcoln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, lrown, lcoln, colsrot, colsdefrot, sdefrot)
                                 generateKeyHolderAdapter(switchtype, capsize, false, true, true, false);
                     }
                 }
-                // surface corner connector
-                if(!lwall && !lfwall && !fwall){
-                    hull(){
-                        union(){
-                        translateKeyHolder(capsize, lhomeval, lcoln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, lrown, lcoln, colsrot, colsdefrot, sdefrot)
-                            generateKeyHolderAdapter(switchtype, capsize, true, false, false, false);
-                        translateKeyHolder(capsize, lhomeval, lfcoln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, lfrown, lfcoln, colsrot, colsdefrot, sdefrot)
-                            generateKeyHolderAdapter(switchtype, capsize, false, false, false, true);
-                            };
-
-                        translateSwitchMatrixCol(capsize, coln, pad, defpad, rrot, rdefrot,true) translateSwitchMatrixCol(capsize, lcoln, pad, defpad, rrot, rdefrot) 
-                        union(){
-                            translateKeyHolder(capsize, homeval, coln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
-                                generateKeyHolderAdapter(switchtype, capsize, false, true, false, false);
-                            translateKeyHolder(capsize, homeval, fcoln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, frown, fcoln, colsrot, colsdefrot, sdefrot)
-                                generateKeyHolderAdapter(switchtype, capsize, false, false, true, false);
-                        }
-                    }
-                }
                 // front wall connector
-                if((fwall || lfwall) && !lwall){
+                if((fwall && lfwall) && !lwall){
                     hull(){
                         translateKeyHolder(capsize, lhomeval, lcoln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, lrown, lcoln, colsrot, colsdefrot, sdefrot)
-                            generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, lf=true);
+                            generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, fl=true);
                         translateSwitchMatrixCol(capsize, coln, pad, defpad, rrot, rdefrot,true) translateSwitchMatrixCol(capsize, lcoln, pad, defpad, rrot, rdefrot)
                             translateKeyHolder(capsize, homeval, coln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
-                                generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, rf=true);
+                                generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, fr=true);
                     }
                 }
-                if((bwall || lbwall) && !lwall){
+                if((bwall && lbwall) && !lwall){
                     hull(){
                         translateKeyHolder(capsize, lhomeval, lcoln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, lrown, lcoln, colsrot, colsdefrot, sdefrot)
-                            generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, lb=true);
+                            generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, bl=true);
                         translateSwitchMatrixCol(capsize, coln, pad, defpad, rrot, rdefrot,true) translateSwitchMatrixCol(capsize, lcoln, pad, defpad, rrot, rdefrot)
                             translateKeyHolder(capsize, homeval, coln, colsrot, colsdefrot, sdefrot, true) translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
-                                generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, rb=true);
+                                generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, br=true);
                     }
                 }
-
             }
+            // surface corner connector
+            hull(){
+                union(){
+                if(!curr)
+                    __translateKeyHolder(capsize, start, homeval, coln, colsrot, colsdefrot, sdefrot, true) __translateKeyHolder(capsize, start, rown, coln, colsrot, colsdefrot, sdefrot)
+                    generateKeyHolderAdapter(switchtype, capsize, true, false, false, false);
+                if(!fwall)
+                    __translateKeyHolder(capsize, start, homeval, fcoln, colsrot, colsdefrot, sdefrot, true) __translateKeyHolder(capsize, start, frown, fcoln, colsrot, colsdefrot, sdefrot)
+                    generateKeyHolderAdapter(switchtype, capsize, false, false, false, true);
+                    };
+
+                translateSwitchMatrixCol(capsize, coln, pad, defpad, rrot, rdefrot,true) translateSwitchMatrixCol(capsize, lcoln, pad, defpad, rrot, rdefrot) 
+                union(){
+                    if(!lwall)
+                    __translateKeyHolder(capsize, start, lhomeval, lcoln, colsrot, colsdefrot, sdefrot, true) __translateKeyHolder(capsize, start, lrown, lcoln, colsrot, colsdefrot, sdefrot)
+                        generateKeyHolderAdapter(switchtype, capsize, false, true, false, false);
+                    if(!lfwall)
+                    __translateKeyHolder(capsize,start, lhomeval, lfcoln, colsrot, colsdefrot, sdefrot, true) __translateKeyHolder(capsize,start, lfrown, lfcoln, colsrot, colsdefrot, sdefrot)
+                        generateKeyHolderAdapter(switchtype, capsize, false, false, true, false);
+                }
+            }
+            // br
+            // bf
         }
     }
 }
@@ -426,14 +533,14 @@ module generateSwitchMatrixCol(switchtype, capsize, wallh, wallt, rows, cols, co
         fwall = getKey(matrix, rows, cols, frown, coln);
         bwall = getKey(matrix, rows, cols, brown, coln);
 
-        lfwall = !(lwall || fwall) && getKey(matrix, rows, cols, lrown-1, lcoln);
-        rfwall = !(rwall || fwall) && getKey(matrix, rows, cols, rrown-1, rcoln);
-        rbwall = !(rwall || bwall) && getKey(matrix, rows, cols, rrown+1, rcoln);
-        lbwall = !(lwall || bwall) && getKey(matrix, rows, cols, lrown+1, lcoln);
+        lfwall = getKey(matrix, rows, cols, lrown-1, lcoln);
+        rfwall = getKey(matrix, rows, cols, rrown-1, rcoln);
+        rbwall = getKey(matrix, rows, cols, rrown+1, rcoln);
+        lbwall = getKey(matrix, rows, cols, lrown+1, lcoln);
         if(valueor(matrix[rown][coln],true)) {
 
             translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
-                generateKeyHolder(switchtype, capsize, wallh,wallt,rwall,lwall,fwall,bwall, lfwall, rfwall, rbwall, lbwall);
+                generateKeyHolder(switchtype, capsize, wallh,wallt,rwall,lwall,fwall,bwall);
         }
         if(rown > 0 && valueor(matrix[rown][coln], true) && valueor(matrix[rown-1][coln],true)){
             hull(){
@@ -446,20 +553,20 @@ module generateSwitchMatrixCol(switchtype, capsize, wallh, wallt, rows, cols, co
         // walls
         if(rown > 0){
             // lf
-            if((lwall || lfwall) && !fwall){
+            if(lwall && !fwall && lfwall){
                 hull(){
                 translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
-                    generateKeyHolderWallAdapter(switchtype, capsize, wallh,wallt, fl=true);
+                    generateKeyHolderWallAdapter(switchtype, capsize, wallh,wallt, lf=true);
                 translateKeyHolder(capsize, rown-1, coln, colsrot, colsdefrot, sdefrot)
-                    generateKeyHolderWallAdapter(switchtype, capsize, wallh,wallt, bl=true);
+                    generateKeyHolderWallAdapter(switchtype, capsize, wallh,wallt, lb=true);
                 }
             }
-            if((rwall || rfwall) && !fwall){
+            if(rwall && !fwall && rfwall){
                 hull(){
                 translateKeyHolder(capsize, rown, coln, colsrot, colsdefrot, sdefrot)
-                    generateKeyHolderWallAdapter(switchtype, capsize, wallh,wallt, fr=true);
+                    generateKeyHolderWallAdapter(switchtype, capsize, wallh,wallt, rf=true);
                 translateKeyHolder(capsize, rown-1, coln, colsrot, colsdefrot, sdefrot)
-                    generateKeyHolderWallAdapter(switchtype, capsize, wallh,wallt, br=true);
+                    generateKeyHolderWallAdapter(switchtype, capsize, wallh,wallt, rb=true);
                 }
             }
         }
@@ -469,14 +576,15 @@ module generateSwitchMatrixCol(switchtype, capsize, wallh, wallt, rows, cols, co
 // generate whole matrix with walls
 module generateSwitchMatrix(switchtype, capsize,wallh, lidt,wallt, rows,cols, matrix, homecol, pad, defpad,rrot,rdefrot, colsrot, colsdefrot, sdefrot, colhome, coldefhome){
     wh = wallh_normalize(switchtype, wallh)+valueor_lowcap(lidt,2);
+    cs = capsize_normalize(switchtype, capsize);
     homecolval = valueor(homecol, 0);
-    translateSwitchMatrixCol(capsize, homecolval, pad, defpad, rrot, rdefrot, true)
+    translateSwitchMatrixCol(cs, homecolval, pad, defpad, rrot, rdefrot, true)
     for(coln=[0:1:cols-1]){
-        translateSwitchMatrixCol(capsize, coln,pad,defpad,rrot,rdefrot) union(){
+        translateSwitchMatrixCol(cs, coln,pad,defpad,rrot,rdefrot) union(){
             if(coln != 0){
-                generateSwitchMatrixColAdapter(switchtype, capsize, wh, wallt, rows, cols, coln,matrix,pad, defpad,rrot,rdefrot, colsrot, colsdefrot, sdefrot, colhome, coldefhome);
+                generateSwitchMatrixColAdapter(switchtype, cs, wh, wallt, rows, cols, coln,matrix,pad, defpad,rrot,rdefrot, colsrot, colsdefrot, sdefrot, colhome, coldefhome);
             }
-            generateSwitchMatrixCol(switchtype, capsize, wh, wallt, rows, cols, coln, matrix, colsrot, colsdefrot, sdefrot, colhome, coldefhome);
+            generateSwitchMatrixCol(switchtype, cs, wh, wallt, rows, cols, coln, matrix, colsrot, colsdefrot, sdefrot, colhome, coldefhome);
         }
     }
 }
@@ -488,7 +596,7 @@ generateSwitchMatrix(
 switchtype=MxHotswapSwitchType, 
 capsize = [20,20,20],
 wallh = 5,
-wallt = 20,
+wallt = 3,
 rows = 3,
 cols = 3,
 matrix = [
@@ -501,9 +609,9 @@ defpad = [2,2,2],
 rrot = [],
 rdefrot = [0,-5,0],
 colsrot = [],
-colsdefrot = [],
+colsdefrot = [[10,0,0],[20,0,0],[30,0,0]],
 sdefrot = [3, 0,0],
-colhome = [],
+colhome = [0],
 coldefhome = 1
 );
 //*/
