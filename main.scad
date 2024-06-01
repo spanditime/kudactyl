@@ -95,12 +95,13 @@ module generateKeyHolderCornerWalls(capsize, wallh, xw, yw, lf, rf, rb, lb){
 }
 module __generateKeyHolderWallPart(wallh, wallt, m){
     width = wallt/sin(45);
+    depth = smallsmallvalue*sin(45);
     rotate([0,0,45])
     if(!valueor(m,false)){
-        cube([width,smallsmallvalue,wallh]);
+        translate([0,-depth,0])
+        cube([width,depth,wallh]);
     }else{
-        translate([0,-smallsmallvalue,0])
-        cube([width,smallsmallvalue,wallh]);
+        cube([width,depth,wallh]);
     }
 }
 module generateKeyHolderWallPart(capsize, wallh, wallt, fl, fr, rf, rb, br, bl, lb, lf, clf, clb, crf, crb){
