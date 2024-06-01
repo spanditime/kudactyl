@@ -3,6 +3,7 @@ smallsmallvalue = 0.1;
 function valueor(value,orvalue) = is_undef(value) ? orvalue : value; 
 function valueor_cap(value, cap) = is_undef(value) ? cap : (value>cap ? cap : value);
 function valueor_lowcap(value, cap) = is_undef(value) ? cap : (value<cap ? cap : value);
+function bti(boool) = boool ? 1 : 0;
 
 // Switch type specific definitions 
 MxSwitchType = 0;
@@ -512,8 +513,29 @@ module generateSwitchMatrixColAdapter(switchtype, capsize, wallh, wallt, rows, c
                         generateKeyHolderAdapter(switchtype, capsize, false, false, true, false);
                 }
             }
-            // br
-            // bf
+            // wall corner connector
+            if((bti(!curr) + bti(!lwall) + bti(!lfwall) + bti(!fwall)) == 3)
+            hull(){
+                union(){
+                if(!curr && !lfwall)
+                    __translateKeyHolder(capsize, start, homeval, coln, colsrot, colsdefrot, sdefrot, true) __translateKeyHolder(capsize, start, rown, coln, colsrot, colsdefrot, sdefrot)
+                    generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, fl=!lwall, lf=!fwall);
+                if(!fwall && !lwall)
+                    __translateKeyHolder(capsize, start, homeval, fcoln, colsrot, colsdefrot, sdefrot, true) __translateKeyHolder(capsize, start, frown, fcoln, colsrot, colsdefrot, sdefrot)
+                    generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, bl=!lfwall, lb=!curr);
+                };
+
+                translateSwitchMatrixCol(capsize, coln, pad, defpad, rrot, rdefrot,true) translateSwitchMatrixCol(capsize, lcoln, pad, defpad, rrot, rdefrot) 
+                union(){
+                    if(!fwall && !lwall)
+                    __translateKeyHolder(capsize, start, lhomeval, lcoln, colsrot, colsdefrot, sdefrot, true) __translateKeyHolder(capsize, start, lrown, lcoln, colsrot, colsdefrot, sdefrot)
+                    generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, rf=!lfwall, fr=!curr);
+                    if(!curr && !lfwall)
+                    __translateKeyHolder(capsize,start, lhomeval, lfcoln, colsrot, colsdefrot, sdefrot, true) __translateKeyHolder(capsize,start, lfrown, lfcoln, colsrot, colsdefrot, sdefrot)
+                    generateKeyHolderWallAdapter(switchtype, capsize, wallh, wallt, rb=!lwall, br=!fwall);
+                }
+             
+            }
         }
     }
 }
