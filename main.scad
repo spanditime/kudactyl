@@ -60,7 +60,6 @@ function capsize_normalize(switchtype, capsize) =
     MX_capsize_normalize(capsize);
 
 // cap wall thickness
-function wallt_normalize(wallt,capsize, keyholderclearence) = valueor_cap(wallt, (capsize - keyholderclearence)/2);
 function wallh_normalize(switchtype, wallh) = valueor_lowcap(wallh, min_wallh(switchtype));
 
 // matrix functions
